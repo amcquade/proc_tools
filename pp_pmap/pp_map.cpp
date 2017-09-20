@@ -15,10 +15,11 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <iomanip>
 using namespace std;
 
 void print_data(vector<string> d);
-
+string make_size(string s, string e);
 int main(int argc, char** argv) {
 	// check number of args
 	if (argc != 2) {
@@ -37,13 +38,14 @@ int main(int argc, char** argv) {
 			printf("Error: Input was not a number\n");
 			exit(-1);
 		}
-		// printf("%lu\n", p);
+
 		dp = opendir ("/proc");
 		if (dp != NULL) {
-			printf("Start\tEnd\tSize\tPerm\tPath\n");
-
+			//printf("Start\tEnd\tSize\tPerm\tPath\n");
+			cout << "Start" << setw(18) << "End" << setw(21) << "Size" << setw(21) << "Perms" << setw(19) << "Path" << endl;
+			cout << setfill('-') << setw(95) << "-" << endl;
 			// read processes
-			while (ep = readdir (dp)) {
+			while ( (ep = readdir (dp)) ) {
 				// match pid and p && dir type
 				pid = strtol(ep->d_name, NULL, 10);
 				if ( ( ep->d_type == DT_DIR ) && ( pid > 0) && (p == pid)) {
@@ -52,7 +54,6 @@ int main(int argc, char** argv) {
 					DIR *proc_dir;
 					strcpy(path, "/proc/");
 					strcat(path, argv[1]);
-					printf("%s\n", path);
 
 					// open proc dir and check
 					proc_dir = opendir(path);
@@ -85,7 +86,7 @@ int main(int argc, char** argv) {
 							int i = 0;
 							while ( !ss.eof() ) {
 								ss >> s;
-								if (i == 0 || i == 1 || i == 2 || (i == 5 && s != "0")) {
+								if (i == 0 || i == 1 || (i == 5 && s != "0")) {
 									// split hex addr
 									if (i == 0 ) {
 										string start, end;
@@ -95,6 +96,11 @@ int main(int argc, char** argv) {
 											end = s.substr(found + 1, s.length() - found);
 											data.push_back(start);
 											data.push_back(end);
+
+											// get size from hex addresses
+											string size;
+											size = make_size(start, end);
+											data.push_back(size);
 										} else {
 											perror ("Error: Couldn't split hex address");
 											exit(-1);
@@ -127,7 +133,26 @@ int main(int argc, char** argv) {
 
 // print formatted data
 void print_data(vector<string> d) {
-	for (int x = 0; x < d.size(); ++x) {
-		cout << d[x] << ' ';
+	for (size_t x = 0; x < d.size(); ++x) {
+		cout << setfill(' ') << setw(20) << left << d[x];
 	}
+}
+
+// takes input of two string hex addresses
+// function computes the size from addresses
+// returns the size of the process as a string
+string make_size(string s, string e) {
+	int long start_hex, end_hex, size_hex;
+
+	// convert e and s to hex
+	start_hex = strtol(s.c_str(), NULL, 16);
+	end_hex = strtol(e.c_str(), NULL, 16);
+
+	// compute hex and convert to string
+	size_hex = end_hex - start_hex;
+	stringstream convert;
+	convert >> std::hex >> size_hex;
+	size_hex = size_hex / 1000;
+	string size = to_string(size_hex);
+	return size;
 }
