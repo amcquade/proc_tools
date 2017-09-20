@@ -15,10 +15,10 @@
 #include <string>
 #include <vector>
 #include <sstream>
-
 using namespace std;
 
 void print_data(vector<string> d);
+
 int main(int argc, char** argv) {
 	// check number of args
 	if (argc != 2) {
@@ -44,8 +44,8 @@ int main(int argc, char** argv) {
 
 			// read processes
 			while (ep = readdir (dp)) {
-				pid = strtol(ep->d_name, NULL, 10);
 				// match pid and p && dir type
+				pid = strtol(ep->d_name, NULL, 10);
 				if ( ( ep->d_type == DT_DIR ) && ( pid > 0) && (p == pid)) {
 					// open specified proc file
 					char path[50];
@@ -85,35 +85,32 @@ int main(int argc, char** argv) {
 							int i = 0;
 							while ( !ss.eof() ) {
 								ss >> s;
-								if (i == 0 || i == 1 || (i == 5 && s != "0")) {
+								if (i == 0 || i == 1 || i == 2 || (i == 5 && s != "0")) {
+									// split hex addr
 									if (i == 0 ) {
 										string start, end;
 										size_t found = s.find('-');
 										if (found) {
 											start = s.substr(0, found);
-											//cout << start << endl;
 											end = s.substr(found + 1, s.length() - found);
-											//cout << end << endl;
 											data.push_back(start);
 											data.push_back(end);
 										} else {
-										exit(-1);
-										// error looking for address
-										// implement later
+											perror ("Error: Couldn't split hex address");
+											exit(-1);
+											// error looking for address
+											// implement later
 										}
 									} else {
 										data.push_back(s);
 									}
 								}
-
 								++i;
-							}
+							} // end line tokenize while
 							print_data(data);
 							cout << endl;
 							getline(inp, line);
-
-						}
-
+						} // end file read while
 						inp.close();
 					}
 				}
