@@ -21,7 +21,7 @@ using namespace std;
 
 class ProcData {
 public:
-  string pid, cmd, state, cpu, mem, vsz, rss;
+  string pid, cmd, state, cpu, mem, vsz, rss, utime, stime, starttime;
 };
 
 
@@ -89,21 +89,28 @@ int main(int argc, char** argv) {
           string s;
           ProcData pd;
           int i = 0;
+          ss >> s;
           while ( !ss.eof() && i != 24 ) {
-            ss >> s;
-            // capture PID, command, state, VSZ, RSS
-            if (i == 0  ) {
+
+            // capture PID, command, state, VSZ, RSS, utime, stime, starttime
+            if ( i == 0  ) {
               pd.pid = s;
             } else if ( i == 1 ) {
               pd.cmd = s;
             } else if ( i == 2) {
               pd.state = s;
+            } else if ( i == 13) {
+              pd.utime = s;
+            } else if ( i == 14) {
+              pd.stime = s;
+            } else if ( i == 21 ) {
+              pd.starttime = s;
             } else if ( i == 22 ) {
               pd.vsz = s;
             } else if ( i == 23 ) {
               pd.rss = s;
             }
-
+            ss >> s;
             ++i;
           } // end line input
           compute_data(pd);
@@ -153,16 +160,39 @@ int proc_count() {
 
 // add %mem and %cpu fields
 void compute_data(ProcData &p_data) {
+  // calculate %mem
   long mem, RSS;
+  string s_rss;
   long phys_page = sysconf(_SC_PHYS_PAGES);
   long page_size = sysconf(_SC_PAGE_SIZE);
   long phys_mem_size = phys_page * page_size;
-  string s_rss;
-  s_rss = p_data.rss;
 
+  // convert rss
+  s_rss = p_data.rss;
   RSS = strtol(s_rss.c_str(), NULL, 10);
   mem = (RSS * page_size * 100) / phys_mem_size;
 
+  // convert and save
   string s_mem = to_string(mem);
   p_data.mem = s_mem;
+
+  // calculate %cpu
+  long cpu, l_utime, l_stime, proc_time, l_starttime, real_time;
+  long clk_ticks = sysconf(_SC_CLK_TCK);
+
+  // convert stime, utime, and starttime to long
+  l_utime = strtol(p_data.utime.c_str(), NULL, 10);
+  l_stime = strtol(p_data.stime.c_str(), NULL, 10);
+  l_starttime = strtol(p_data.starttime.c_str(), NULL, 10);
+
+  // get proc time and proc time
+  proc_time = (l_utime / clk_ticks) + (l_stime / clk_ticks);
+  real_time = l_utime - (l_starttime / clk_ticks);
+
+  if ( real_time != 0 )
+    cpu = real_time + ((proc_time * 100) / real_time);
+  else
+    cpu = 0;
+
+  p_data.cpu = to_string(cpu);
 }
