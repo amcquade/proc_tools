@@ -41,7 +41,6 @@ int main(int argc, char** argv) {
 
 		dp = opendir ("/proc");
 		if (dp != NULL) {
-			//printf("Start\tEnd\tSize\tPerm\tPath\n");
 			cout << "Start" << setw(18) << "End" << setw(21) << "Size" << setw(21) << "Perms" << setw(19) << "Path" << endl;
 			cout << setfill('-') << setw(95) << "-" << endl;
 			// read processes
@@ -70,7 +69,6 @@ int main(int argc, char** argv) {
 						// declare stream + string vars
 						ifstream inp;
 						string line, pp, path2;
-						vector<string> numbers;
 
 						// set path and open stream to file
 						pp = argv[1];
@@ -104,8 +102,6 @@ int main(int argc, char** argv) {
 										} else {
 											perror ("Error: Couldn't split hex address");
 											exit(-1);
-											// error looking for address
-											// implement later
 										}
 									} else {
 										data.push_back(s);
