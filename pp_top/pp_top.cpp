@@ -19,10 +19,16 @@
 #include <iomanip>
 using namespace std;
 
+#define clear() printf("\033[H\033[J");
+#define gotoxy(x,y) printf("\033[%d;%dH", (x), (y));
+
+
 class ProcData {
 public:
    string pid, cmd, state, cpu, mem, vsz, starttime;
    float rss, utime, stime;
+
+   void print_data();
 };
 
 void get_data();
@@ -37,23 +43,86 @@ int main(int argc, char** argv) {
       print_header();
       get_data();
       sleep(1);
-      system("clear");
+      clear();
+      gotoxy(0, 0);
+      clear();
    }
-
-
    return 0;
 }
 
-// print formatted data
-void print_data(vector<ProcData> d) {
-   //d.push_back("meow");
-   for (size_t x = 0; x < d.size(); ++x) {
-      cout << setfill(' ') << setw(20) << left << d[x].pid << ' ' << d[x].cmd << ' ';
-      cout << d[x].state << ' ' << d[x].cpu << ' ';
-      cout << d[x].mem << ' ' << d[x].vsz << ' ';
-      cout << d[x].rss << endl;
+void get_data() {
+   DIR *dp;
+   struct dirent *ep;
+   int long pid;
+
+   // open proc folder
+   dp = opendir ("/proc");
+   if (dp != NULL ) {
+      // while readbale dirs
+      int i = 0;
+      int rows = 0;
+      while ( (ep = readdir (dp)) && (rows < 5) ) {
+         pid = strtol(ep->d_name, NULL, 10);
+
+         // check if pid is owned
+         if ( ( ep->d_type == DT_DIR ) && ( pid > 0) ) {
+            // open stat file of pid
+            string p, line;
+            DIR *proc_dir;
+            p = ep->d_name;
+            p = "/proc/" + p + "/stat";
+
+            // read from stat file
+            ifstream inp;
+            inp.open(p.c_str());
+            getline(inp, line);
+
+            stringstream ss(line);
+            string s;
+            float f;
+            f = 0.0;
+            ProcData pd;
+            ss >> s;
+            while ( !ss.eof() ) {
+               // capture PID, command, state, VSZ, RSS, utime, stime, starttime
+               if ( i == 0  ) {
+                  pd.pid = s;
+               } else if ( i == 1 ) {
+                  pd.cmd = s;
+               } else if ( i == 2) {
+                  pd.state = s;
+               } else if ( i == 13) {
+                  f = stof(s);
+                  pd.utime = f;
+               } else if ( i == 14) {
+                  f = stof(s);
+                  pd.stime = f;
+               } else if ( i == 21 ) {
+                  pd.starttime = s;
+               } else if ( i == 22 ) {
+                  pd.vsz = s;
+               } else if ( i == 23 ) {
+                  f = stof(s);
+                  pd.rss = f;
+               }
+               ss >> s;
+               ++i;
+            } // end line input
+            compute_data(pd);
+            inp.close();
+            pd.print_data();
+            i = 0;
+            ++rows;
+         }
+      } // end while
+
+   } else {
+      perror("Error: Could not access /proc/");
+      exit(-1);
    }
+   closedir(dp);
 }
+
 
 int proc_count() {
    int count = 0;
@@ -122,6 +191,7 @@ void compute_data(ProcData &p_data) {
 
    // convert rss
    p_data.mem = ( (float) p_data.rss * (float) getpagesize() * 100.0) / (float)phys_mem_size;
+   cout << p_data.rss << endl;
 
    // calculate %cpu
    //float proc_time;
@@ -149,87 +219,23 @@ void compute_data(ProcData &p_data) {
    */
 }
 
-void get_data(){
-   DIR *dp;
-   struct dirent *ep;
-   int long pid;
 
-   // open proc folder
-   dp = opendir ("/proc");
-
-   cout << setfill('-') << setw(100) << "-" << endl;
-   if (dp != NULL ) {
-      // while readbale dirs
-      while ( (ep = readdir (dp)) ) {
-         pid = strtol(ep->d_name, NULL, 10);
-
-         // check if pid is owned
-         if ( ( ep->d_type == DT_DIR ) && ( pid > 0) ) {
-            // open stat file of pid
-            string p, line;
-            DIR *proc_dir;
-            p = ep->d_name;
-            p = "/proc/" + p + "/stat";
-
-            // read from stat file
-            ifstream inp;
-            inp.open(p.c_str());
-            getline(inp, line);
-            vector<ProcData> data;
-
-            while ( !inp.eof() ) {
-               stringstream ss(line);
-               string s;
-               float f;
-               f = 0.0;
-               ProcData pd;
-               int i = 0;
-               ss >> s;
-               while ( !ss.eof() && i != 24 ) {
-                  // capture PID, command, state, VSZ, RSS, utime, stime, starttime
-                  if ( i == 0  ) {
-                     pd.pid = s;
-                  } else if ( i == 1 ) {
-                     pd.cmd = s;
-                  } else if ( i == 2) {
-                     pd.state = s;
-                  } else if ( i == 13) {
-                     f = stof(s);
-                     pd.utime = f;
-                  } else if ( i == 14) {
-                     f = stof(s);
-                     pd.stime = f;
-                  } else if ( i == 21 ) {
-                     pd.starttime = s;
-                  } else if ( i == 22 ) {
-                     pd.vsz = s;
-                  } else if ( i == 23 ) {
-                     f = stof(s);
-                     pd.rss = f;
-                  }
-                  ss >> s;
-                  ++i;
-               } // end line input
-               compute_data(pd);
-               data.push_back(pd);
-               getline(inp, line);
-            } // end file input
-            inp.close();
-            print_data(data);
-         }
-         // sort
-         //print_data(data);
-      }
-
-   } else {
-      perror("Error: Could not access /proc/");
-      exit(-1);
-   }
-   closedir(dp);
-}
 
 void print_header() {
-   cout << "PID" << setw(15) << "Command" << setw(10);
+   //cout << setfill('-') << setw(100) << "-" << endl;
+
+   cout << "PID" << setw(15) << right << "Command" << setw(10);
    cout << "State" << setw(10) << "CPU" << setw(19) << "MEM" << setw(10);
    cout << "VSZ" << setw(19) << "RSS" << endl;
+}
+
+// print formatted data
+void ProcData::print_data() {
+   cout << "pid " << setfill(' ') << setw(20) << left << pid << ' ' ;
+   cout << "cmd " << cmd << ' ';
+   cout << "state " << state << ' ';
+   cout << "cpu " << cpu << ' ';
+   cout << "mem " << mem << ' ';
+   cout << "vsz " << vsz << ' ';
+   cout << "rss " << rss << endl;
 }
